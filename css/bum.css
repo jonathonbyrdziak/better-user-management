@@ -1,0 +1,39 @@
+
+.clear {display:block;width:100%;clear:both;}
+
+.registration-wrapper {width:100%;font-family:"Helvetica Neue", Arial, Helvetica, "Nimbus Sans L", sans-serif;}
+	.registration-box {position:relative;float:left;width:50%;}
+		.registration-box h2.registration-title {margin:0;}
+		.registration-box .registration-hr {margin:0;}
+		.registration-box .registration-list {height: 100px;}
+		.registration-box p {margin:0;padding:10px;display: block;height: 50px;}
+		
+	.registration-error {display:block;padding:10px;border:1px solid red;background:pink;}
+
+.registration-form {width:100%;}
+	.registration-label {line-height:35px;height:35px;width:100px;position:relative;float:left;}
+	.registration-form input.registration-text {width:400px;line-height:35px;height:35px;-moz-border-radius:3px;border-radius:3px;text-indent:10px;margin:0;}
+
+.registration-subnav {margin-top:20px;}
+
+#page-profile h3 {border-bottom:1px solid #555;border-right:4px solid #d4d4d4;text-indent:10px;padding-bottom:3px;background:#e1e1e1;}
+	#page-profile table {border:none;margin:0;}
+		#page-profile table td, #page-profile table th {padding-bottom:14px !important;}
+		#page-profile table th {padding:3px;width:150px;vertical-align: top;}
+		#page-profile table th, #page-profile table th label {color:#444;}
+		#page-profile table td {border:none;padding:3px;}
+	
+	#page-profile textarea {width:98%;margin:0;-moz-border-radius:3px;border-radius:3px;text-indent:10px;}
+	#page-profile .regular-text, #page-profile select {width:98%;margin:0;-moz-border-radius:3px;border-radius:3px;text-indent:10px;height:35px;line-height:35px;}
+	#page-profile .description {font-size:11px;color:#777;}
+	#page-profile .admin_bar_front {dsiplay:block;position:relative;float:left;width:140px;}
+	#page-profile #password input {position:relative;float:left;margin-right:10px;-moz-border-radius:3px;border-radius:3px;text-indent:5px;height:25px;line-height:25px;width:200px;}
+	#page-profile #password .description {display:block;line-height:16px;}
+
+	#page-profile #pass-strength-result {border:1px solid #ccc;-moz-border-radius:3px;border-radius:3px;margin: 0 10px 20px 0;display:block;width:195px;text-align:center;padding:3px;position: relative;float: left;}
+	#page-profile p.submit {width:300px;position:relative;float:right;}
+
+.registration-form input.registration-submit, 
+.registration-wrapper a.registration-link-candidate,
+#page-profile p.submit input
+{margin:10px auto;text-decoration:none;display:block;width:300px;border:1px solid #777;background:#444;cursor:pointer;color:#fff !important;font-weight:bold;text-align:center;-moz-border-radius:3px;border-radius:3px;height:35px;line-height:35px;display:block;font-size:14px;}
