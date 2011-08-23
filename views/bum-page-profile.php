@@ -33,4 +33,8 @@ $user = get_userdata($user_id);
 		<p><?php echo $user->description; ?></p>
 	</div>
 	<div class="clear"></div>
+	
+	<div class="profile_additional">
+		<?php do_action('show_user_profile'); ?>
+	</div>
 </div>

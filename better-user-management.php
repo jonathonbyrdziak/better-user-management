@@ -56,11 +56,20 @@ function bum_initialize()
 	add_action('wp', 'bum_init_page_login');
 	add_action('wp', 'bum_init_page_profile');
 	add_action('wp', 'bum_init_page_registration');
+	add_action('show_user_profile', 'bum_display_custom_user_fields');
+	add_action('bum_register_form', 'bum_do_registration_form');
+	
+	add_filter('bum_edit_user', 'bum_edit_user', 10);
+	add_filter('bum_edit_user', 'bum_save_user_meta_data', 20);
 	add_filter('site_url', 'bum_update_login_url', 20, 2);
 	add_filter('wp_nav_menu', 'bum_wp_page_menu', 20, 2);
 	add_filter('wp_page_menu', 'bum_wp_page_menu', 20, 2);
 	add_filter('bum_menu_href', 'bum_check_menu_hrefs', 20, 2);
 	add_filter('bum_menu_text', 'bum_check_menu_text', 20, 2);
+
+	add_filter('bum-page-shortcode', 'bum_page_login', 20, 2);
+	add_filter('bum-page-shortcode', 'bum_page_profile', 20, 2);
+	add_filter('bum-page-shortcode', 'bum_page_registration', 20, 2);
 	
 	//widgets;
 	add_action('widgets_init', 'init_registered_widgets', 1);
@@ -174,11 +183,364 @@ function bum_initialize()
         ),
         )
     ));
-    
-    //Registration
-    bum_register_user('player', 'Player', array( 'read', 'level_0' ));
-    bum_register_user('cheerleader', 'Cheerleader', array( 'read', 'level_0' ));
-    bum_register_user('fan', 'Fan', array( 'read', 'level_0' ));
+}
+	
+/**
+ * Contains all of the default user fields
+ * 
+ * @return array
+ */
+function bum_get_default_profile_fields()
+{
+	return array(
+		'rich_editing' => array(
+			'name' => 'Visual Editor',
+			'desc' => 'Disable the visual editor when writing',
+			'id' => 'rich_editing',
+			'type' => 'checkbox',
+			'std' => ''
+		),
+		'comment_shortcuts' => array(
+			'name' => 'Keyboard Shortcuts',
+			'desc' => 'Enable keyboard shortcuts for comment moderation. <a href="http://codex.wordpress.org/Keyboard_Shortcuts">More information</a>',
+			'id' => 'comment_shortcuts',
+			'type' => 'checkbox',
+			'std' => ''
+		),
+		'user_login' => array(
+			'name' => 'Username',
+			'desc' => 'Usernames cannot be changed.',
+			'id' => 'user_login',
+			'type' => 'text',
+			'std' => ''
+		),
+		'role' => array(
+			'name' => 'Role',
+			'desc' => 'Disable the visual editor when writing',
+			'id' => 'role',
+			'type' => 'select',
+			'options' => create_function('', "return get_roles_array();")
+		),
+		'first_name' => array(
+			'name' => 'First Name',
+			'desc' => '',
+			'id' => 'first_name',
+			'type' => 'text',
+			'std' => ''
+		),
+		'last_name' => array(
+			'name' => 'Last Name',
+			'desc' => '',
+			'id' => 'last_name',
+			'type' => 'text',
+			'std' => ''
+		),
+		'nickname' => array(
+			'name' => 'Nickname',
+			'desc' => '',
+			'id' => 'nickname',
+			'type' => 'text',
+			'std' => ''
+		),
+		'display_name' => array(
+			'name' => 'Display name publicly as',
+			'desc' => '',
+			'id' => 'display_name',
+			'type' => 'select',
+			'options' => create_function('', "return get_display_names( getVar( 'user_id' ));")
+		),
+		'user_email' => array(
+			'name' => 'E-mail',
+			'desc' => '',
+			'id' => 'user_email',
+			'type' => 'email',
+			'std' => ''
+		),
+		'url' => array(
+			'name' => 'Website',
+			'desc' => '',
+			'id' => 'url',
+			'type' => 'text',
+			'std' => ''
+		),
+		'aim' => array(
+			'name' => 'AIM',
+			'desc' => '',
+			'id' => 'aim',
+			'type' => 'text',
+			'std' => ''
+		),
+		'yim' => array(
+			'name' => 'Yahoo IM',
+			'desc' => '',
+			'id' => 'yim',
+			'type' => 'text',
+			'std' => ''
+		),
+		'jabber' => array(
+			'name' => 'Jabber / Google Talk',
+			'desc' => '',
+			'id' => 'jabber',
+			'type' => 'text',
+			'std' => ''
+		),
+		'description' => array(
+			'name' => 'Biographical Info',
+			'desc' => 'Share a little biographical information to fill out your profile. This may be shown publicly.',
+			'id' => 'description',
+			'type' => 'textarea',
+			'std' => ''
+		),
+		'password' => array(
+			'name' => 'New Password',
+			'desc' => '',
+			'id' => 'password',
+			'type' => 'password',
+			'std' => ''
+		),
+	);
+}
+
+/**
+ * Do registration form
+ * 
+ * @return boolean
+ * @since 1.2
+ */
+function bum_do_registration_form()
+{
+	//initializing variables
+	$user_type = bum_is_user_type();
+	$pages = get_registration_pages();
+	$status = true;
+	
+	//reasons to fail
+	if (!$user_type) $status = false;
+	if ($status && !isset($pages[$user_type])) $status = false;
+	
+	bum_display_custom_user_fields( null, get_registration_fields( $user_type ));
+	return true;
+}
+	
+/**
+ * Checks to see if there's a user type
+ * 
+ */
+function bum_is_user_type()
+{
+	if (isset($_REQUEST['user_type']) && $type = $_REQUEST['user_type']) 
+		return $type;
+	return false;
+}
+	
+/**
+ * Display the user edit fields
+ * 
+ * @param unknown_type $user
+ */
+function bum_display_custom_user_fields($user = null, $fields = null) 
+{
+	//initializing variables
+	if (!is_null($user)) $user = get_userdata($user->ID);
+	$is_administration = false;
+	if (is_null($fields)) $is_administration = true;
+	
+	if ($is_administration)
+	{
+		echo "<style>",
+		".field_wrapper label {display:block;position:relative;float:left;width:220px;}",
+		".typetext input {width: 25em;}",
+		".typecheckbox input {margin-right:200px;position:relative;float:left;}",
+		".field_wrapper span {display:block;padding-left:220px;}",
+		".field_wrapper {padding: 10px;}",
+		".typetextarea textarea {width: 500px;}",
+		".field_wrapper .profile_description{font-family: 'Lucida Grande', Verdana, Arial, 'Bitstream Vera Sans', sans-serif;font-size: 12px;font-style: italic;color: #666;}",
+		"</style>",
+		"<h3>Additional Details</h3>";
+		
+		//initializing variables
+		$currentUser = new WP_User( $user->ID );
+		$fields = array();
+		
+		foreach ($currentUser->roles as $role)
+		{
+			$fields = wp_parse_args($fields, get_custom_user_fields( $role ));
+		}
+	}
+	
+	//reasons to fail
+	if (empty($fields)) return false;
+	
+	// Use nonce for verification
+	echo '<div class="nonce_wrapper"><input type="hidden" name="user_meta_box_nonce" value="',
+		wp_create_nonce(basename(__FILE__)), '" /></div>',
+		'<input type="hidden" name="user_type" value="',bum_is_user_type(),'" />';
+	
+    foreach ($fields as $field) 
+    {
+    	if (!current_user_can('edit_users') && $field['id'] == 'role')
+    	{
+    		continue;
+    	}
+    	
+        // get current post meta data
+        $unique = md5(microtime());
+        if (!is_null($user) && isset($user->{$field['id']}))
+        {
+        	$meta = $user->{$field['id']};
+        }
+        elseif(!is_null($user))
+        {
+        	$meta = get_user_meta($user->ID, $field['id'], true);
+        }
+        else
+        {
+        	$meta = (isset($_REQUEST[$field['id']]))?$_REQUEST[$field['id']]:'';
+        }
+        
+		echo '<p class="field_wrapper div', $field['id'], ' type',$field['type'],'">';
+		if ($field['type'] != 'password') echo '<label for="', $field['id'], '">', $field['name'], '</label>';
+        
+        switch ($field['type'])
+        {
+            case 'password':
+                echo 
+                '<label for="', $field['id'], '">', $field['name'], '</label>',
+                '<input type="password" name="pass1" id="pass1" size="16" value="" autocomplete="off">',
+                '<span class="description">If you would like to change the password type a new one. Otherwise leave this blank.</span><br>',
+                '<input type="password" name="pass2" id="pass2" size="16" value="" autocomplete="off">',
+                '<span class="description">Type your new password again.</span><br>',
+                '<div id="pass-strength-result">Strength indicator</div>',
+                '<p class="description indicator-hint">Hint: The password should be at least seven characters long. To make it stronger, use upper and lower case letters, numbers and symbols like ! " ? $ % ^ &amp; ).</p>',
+                '<script type="text/javascript"> /* <![CDATA[ */
+				var pwsL10n = {
+					empty: "Strength indicator",
+					short: "Very weak",
+					bad: "Weak",
+					good: "Medium",
+					strong: "Strong",
+					mismatch: "Mismatch"
+				};
+				try{convertEntities(pwsL10n);}catch(e){};
+				/* ]]> */
+				</script>',
+				'<script type="text/javascript" src="',get_bloginfo('url'),'/wp-admin/load-scripts.php?c=1&load=jquery,hoverIntent,common,jquery-color,user-profile,password-strength-meter"></script>';
+                break;
+            case 'address':
+                echo '<textarea name="', $field['id'], '" id="', $field['id'], '" cols="60" rows="4" style="width:97%">', $meta ? $meta : $field['std'], '</textarea>', "\n", 
+                '<label><div class="registration-label">',$field['desc'],'</div></label>';
+                break;
+                
+			case 'email':
+				echo '<input type="text" name="', $field['id'], '" id="', $field['id'], '" value="', $meta ? $meta : $field['std'], '" class="registration-text" />', "\n";
+				echo '<input type="text" name="', $field['id'], '1" id="', $field['id'], '" value="', ($default = "Please confirm your email"), 
+				'" class="registration-text" onBlur="if (this.value == \'\') this.value = \'',$default,'\';"  onFocus="if (this.value == \'',$default,'\') this.value = \'\';" />', "\n",
+				'<label><div class="registration-label">'.$field['desc'].'</div></label>';
+				break;
+				
+            case 'text':
+            	$disabled = '';
+            	if (is_user_logged_in() && $field['id'] == 'user_login') $disabled = 'readonly="true"';
+                echo '<input ',$disabled,' type="text" name="', $field['id'], '" id="', $field['id'], '" value="', $meta ? $meta : $field['std'], '" class="registration-text" />', "\n", 
+                '<label><div class="registration-label">', $field['desc'], '</div></label>';
+                break;
+                
+            case 'textarea':
+                echo '<textarea name="', $field['id'], '" id="', $field['id'], '" cols="30" rows="5">', $meta ? $meta : $field['std'], '</textarea>', "\n", 
+                '<span class="profile_description">', $field['desc'], '</span>';
+                break;
+                
+            case 'select':
+                echo '<select name="', $field['id'], '" id="', $field['id'], '">';
+                if (!is_array($field['options']))
+                {
+                	$field['options'] = $field['options']();
+                }
+        		foreach ($field['options'] as $key => $option)
+        		{
+        			if (is_int($key)) $key = $option;
+                    echo '<option ', $meta == $option ? ' selected="selected"' : '', 
+        			' value="',$key,'">', $option, '</option>';
+        		}
+                echo '</select>';
+                break;
+                
+            case 'radio':
+                foreach ($field['options'] as $option)
+                {
+                    echo '<input type="radio" name="', $field['id'], '" value="', $option['value'], '"', $meta == $option['value'] ? ' checked="checked"' : '', ' />', $option['name'];
+                }
+                echo '<br/>',$field['desc'];
+                break;
+                
+            case 'checkbox':
+                echo '<input type="hidden" name="', $field['id'], '" value="" /> ';
+                echo '<input type="checkbox" name="', $field['id'], '" id="', $field['id'], '"', ($meta && $meta != 'false') ? ' checked="checked"' : '', ' />',
+                '<span class="profile_description">', $field['desc'], '</span>';
+                break;
+                
+            case 'editor':
+            	echo 
+                '<div style="border:1px solid #DFDFDF;border-collapse: separate;border-top-left-radius: 6px 6px;border-top-right-radius: 6px 6px;">',
+                	'<textarea rows="10" class="theEditor" cols="40" name="', $field['id'], '" id="'.$unique.'"></textarea>',
+                '</div>', 
+                '<script type="text/javascript">edCanvas = document.getElementById(\''.$unique.'\');</script>', "\n", $field['desc'];
+                break;
+        }
+        
+        echo '</p>';
+    }
+}
+
+/**
+ * Save user meta data
+ * 
+ * @param $user_id
+ */
+function bum_save_user_meta_data( $user_id, $role = false ) 
+{
+	//initializing variables
+	$user = new WP_User( $user_id );
+	$fields = array();
+	
+	$role = $role === false ? $user->roles[0] : $role;
+	$fields = wp_parse_args($fields, get_custom_user_fields( $role ));
+	
+	//reasons to fail
+	if (!isset($_REQUEST['user_meta_box_nonce']) || empty($fields)) return false;
+	
+	// verify nonce
+	if (!wp_verify_nonce($_REQUEST['user_meta_box_nonce'], basename(__FILE__))) {
+		return $user_id;
+	}
+	
+	// check autosave
+	if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+		return $user_id;
+	}
+										
+	if (is_array($fields))
+	{
+		foreach ($fields as $field)
+		{
+			if (!isset($_POST[$field['id']])) continue;
+										
+			$old = get_user_meta($user_id, $field['id'], true);
+    		$new = $_REQUEST[$field['id']];
+										
+    		if ($new && $new != $old)
+    		{
+    			//if ($field['type'] == "address") save_latitude_and_longitude($post_id,$new);
+    			update_user_meta($user_id, $field['id'], $new);
+    		}
+    		elseif ('' == $new && $old)
+    		{
+    			delete_user_meta($user_id, $field['id'], $old);
+    		}
+    		
+    	}
+    	return true;
+    }
     
 }
 
@@ -237,28 +599,81 @@ function bum_user_roles()
 function bum_pages_shortcode( $config )
 {
 	//initializing
-	global $bum_public_user;
 	$defaults = array(
 		'page' => 'Login'
 	);
 	$config = shortcode_atts($defaults, $config);
 	$page = strtolower($config['page']);
 	
-	//calling an audible view
-	if (isset($_GET['bump']))
-	{
-		$page .= '-form';
-	}
-	elseif (!is_null($bum_public_user))
-	{
-		$page .= '-public';
-	}
-	elseif ($page == 'profile' && isset($_GET['action']) && $_GET['action'] == 'edit')
-	{
-		$page .= '-edit';
-	}
+	return bum_show_view( apply_filters('bum-page-shortcode', $page, $config) );
+}
+
+/**
+ * Function is responsible for setting the proper profile page
+ *
+ * @param unknown_type $page
+ * @param unknown_type $config
+ */
+function bum_page_profile( $page, $config )
+{
+	global $bum_public_user;
 	
-	return bum_show_view("bum-page-{$page}");
+	if ($page == 'profile')
+	{
+		$page = 'bum-page-profile';
+		
+		if (isset($_GET['action']) && $_GET['action'] == 'edit')
+		{
+			$page .= '-edit';
+		}
+		elseif (!is_null($bum_public_user))
+		{
+			$page .= '-public';
+		}
+	}
+	return $page;
+}
+
+/**
+ * Function is responsible for setting the proper login page
+ *
+ * @param unknown_type $page
+ * @param unknown_type $config
+ */
+function bum_page_login( $page, $config )
+{
+	if ($page == 'login')
+	{
+		$page = 'bum-page-login';
+	}
+	return $page;
+}
+
+/**
+ * Function is responsible for adjusting the page template
+ *
+ * @param unknown_type $page
+ * @param unknown_type $config
+ */
+function bum_page_registration( $page, $config )
+{
+	if ($page == 'registration')
+	{
+		$page = 'bum-page-registration';
+		
+		if (isset($_GET['user_type']))
+		{
+			if ($view = bum_get_show_view($page.'-'.$_GET['user_type']))
+			{
+				echo $view;
+			}
+			else 
+			{
+				$page .= '-form';
+			}
+		}
+	}
+	return $page;
 }
 
 /**
@@ -271,9 +686,13 @@ function bum_login_redirect_original()
 	$url = parse_url( bum_get_page_url() );
 	
 	//reasons to return
-	if (substr($url['path'],-12) != 'wp-login.php') return false;
+	if ($url['query'] == 'action=register')
+		wp_redirect( bum_get_permalink_registration() );
+	elseif(substr($url['path'],-12) == 'wp-login.php')
+		wp_redirect( bum_get_permalink_login() );
+	else
+		return false;
 	
-	wp_redirect( bum_get_permalink_login() );
 	exit();
 }
 
@@ -372,11 +791,11 @@ function bum_get_registration_type()
 	$users = array_keys($users);
 	
 	//reasons to return
-	if (!isset($_REQUEST['bump'])) return false;
+	if (!isset($_REQUEST['user_type'])) return false;
 	
-	if (!isset($type) && in_array($_REQUEST['bump'], $users))
+	if (!isset($type) && in_array($_REQUEST['user_type'], $users))
 	{
-		$type = $_REQUEST['bump'];
+		$type = $_REQUEST['user_type'];
 	}
 	
 	return $type;
@@ -404,6 +823,8 @@ function bum_update_login_url( $url, $path )
 	if (substr($path,0,12) == 'wp-login.php')
 	{
 		$parts = parse_url($url);
+		if (!isset($parts['query']))
+			$parts['query'] = array();
 		return bum_get_permalink_login( $parts['query'] );
 	}
 	/*
@@ -621,15 +1042,15 @@ function bum_get_page( $title = 'Login' )
 function bum_is_page( $page = 'Login' )
 {
 	//initializing
-	global $wp_query;
+	global $wp_the_query;
 	
 	//reasons to fail
 	if ( is_admin() ) return false;
-	if ( !$wp_query->is_page ) return false;
+	if ( !$wp_the_query->is_page ) return false;
 	
 	//initializing
 	$page_id = bum_get_page($page);
-	$current_id = $wp_query->get_queried_object_id();
+	$current_id = $wp_the_query->get_queried_object_id();
 	
 	//reasons to fail
 	if ( $page_id != $current_id ) return false;
@@ -688,15 +1109,15 @@ function bum_init_page_profile()
 	//the user should also have editing capabilities
 	elseif ($action == 'update' && current_user_can('edit_user', $user_id))
 	{
-		
 		if ( IS_PROFILE_PAGE )
 			do_action('personal_options_update', $user_id);
 		else
 			do_action('edit_user_profile_update', $user_id);
 		
 		if ( !is_multisite() ) {
-			$errors = bum_edit_user($user_id);
+			$errors = apply_filters('bum_edit_user', $user_id);
 		} else {
+			global $wpdb;
 			$user = get_userdata( $user_id );
 			
 			// Update the email address in signups, if present.
@@ -714,12 +1135,13 @@ function bum_init_page_profile()
 				}
 			}
 			if ( !isset( $errors ) || ( isset( $errors ) && is_object( $errors ) && false == $errors->get_error_codes() ) )
-				$errors = bum_edit_user($user_id);
+				$errors = apply_filters('bum_edit_user', $user_id);
 			if ( $delete_role ) // stops users being added to current blog when they are edited
 				delete_user_meta( $user_id, $blog_prefix . 'capabilities' );
 		
 			if ( is_multisite() && is_network_admin() && !IS_PROFILE_PAGE && current_user_can( 'manage_network_options' ) && !isset($super_admins) && empty( $_POST['super_admin'] ) == is_super_admin( $user_id ) )
 				empty( $_POST['super_admin'] ) ? revoke_super_admin( $user_id ) : grant_super_admin( $user_id );
+			
 		}
 		
 		if ( !is_wp_error( $errors ) ) {
@@ -1033,12 +1455,6 @@ function bum_init_page_registration()
 	//reasons to return
 	if (!bum_is_page('Registration')) return false;
 	
-	if ( is_multisite() ) {
-		// Multisite uses wp-signup.php
-		wp_redirect( apply_filters( 'wp_signup_location', site_url('wp-signup.php') ) );
-		exit;
-	}
-	
 	if (is_user_logged_in())
 	{
 		wp_redirect( bum_get_permalink_profile() );
@@ -1052,6 +1468,7 @@ function bum_init_page_registration()
 	{
 		$role = bum_get_registration_type();
 		$bum_errors = bum_register_new_user($_POST['user_login'], $_POST['user_email'], $role);
+		
 	}
 	
 }
@@ -1437,7 +1854,7 @@ function bum_register_new_user( $user_login, $user_email, $role = null ) {
 	} elseif ( ! validate_username( $user_login ) ) {
 		$errors->add( 'invalid_username', __( '<strong>ERROR</strong>: This username is invalid because it uses illegal characters. Please enter a valid username.' ) );
 		$sanitized_user_login = '';
-	} elseif ( username_exists( $sanitized_user_login ) ) {
+	} elseif ( null !== username_exists( $sanitized_user_login ) ) {
 		$errors->add( 'username_exists', __( '<strong>ERROR</strong>: This username is already registered, please choose another one.' ) );
 	}
 
@@ -1447,7 +1864,7 @@ function bum_register_new_user( $user_login, $user_email, $role = null ) {
 	} elseif ( ! is_email( $user_email ) ) {
 		$errors->add( 'invalid_email', __( '<strong>ERROR</strong>: The email address isn&#8217;t correct.' ) );
 		$user_email = '';
-	} elseif ( email_exists( $user_email ) ) {
+	} elseif ( false !== email_exists( $user_email ) ) {
 		$errors->add( 'email_exists', __( '<strong>ERROR</strong>: This email is already registered, please choose another one.' ) );
 	}
 
@@ -1474,6 +1891,8 @@ function bum_register_new_user( $user_login, $user_email, $role = null ) {
 		$errors->add( 'registerfail', sprintf( __( '<strong>ERROR</strong>: Couldn&#8217;t register you... please contact the <a href="mailto:%s">webmaster</a> !' ), get_option( 'admin_email' ) ) );
 		return $errors;
 	}
+	
+	bum_save_user_meta_data( $user_id, bum_is_user_type() );
 	
 	update_user_option( $user_id, 'default_password_nag', true, true ); //Set up the Password change nag.
 	

@@ -11,8 +11,8 @@
 	.registration-error {display:block;padding:10px;border:1px solid red;background:pink;}
 
 .registration-form {width:100%;}
-	.registration-label {line-height:35px;height:35px;width:100px;position:relative;float:left;}
-	.registration-form input.registration-text {width:400px;line-height:35px;height:35px;-moz-border-radius:3px;border-radius:3px;text-indent:10px;margin:0;}
+	.registration-form .registration-text, .registration-form .input {width:414px;padding: 10px;margin: 0 0 10px 10px;border: 1px solid #D8D7D7;background-color: white;}
+	.registration-form .field_wrapper label, .registration-form .login-label {width: 150px;clear: left;display: block;float: left;font-size: 1em;line-height: 40px;margin: 0;text-align: left;vertical-align: middle;}
 
 .registration-subnav {margin-top:20px;}
 
@@ -37,3 +37,7 @@
 .registration-wrapper a.registration-link-candidate,
 #page-profile p.submit input
 {margin:10px auto;text-decoration:none;display:block;width:300px;border:1px solid #777;background:#444;cursor:pointer;color:#fff !important;font-weight:bold;text-align:center;-moz-border-radius:3px;border-radius:3px;height:35px;line-height:35px;display:block;font-size:14px;}
+
+
+
+

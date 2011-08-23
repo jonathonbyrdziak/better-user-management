@@ -15,6 +15,10 @@ global $bum_action, $bum_errors, $bum_redirect_to, $bum_user, $bum_http_post,
 $bum_secure_cookie, $bum_interim_login, $bum_reauth, $bum_rememberme, $bum_messages_txt,
 $bum_errors_txt;
 
+?>
+<div class="registration-form">
+<?php 
+
 //showing messages
 if ( $bum_messages_txt )
 	echo '<div id="login_error">' . apply_filters('login_errors', $bum_messages_txt) . "</div>\n";
@@ -32,12 +36,14 @@ case 'retrievepassword' :
 	
 	<form name="lostpasswordform" id="lostpasswordform" action="<?php echo bum_get_permalink_login('action=lostpassword'); ?>" method="post">
 		<p>
-			<label><?php _e('Username or E-mail:') ?><br />
-			<input type="text" name="user_login" id="user_login" class="input" value="<?php echo esc_attr($bum_user_login); ?>" size="20" tabindex="10" /></label>
+			<label class="login-label"><?php _e('Username or E-mail:') ?></label>
+			<input type="text" name="user_login" id="user_login" class="input" value="<?php echo esc_attr($bum_user_login); ?>" size="20" tabindex="10" />
 		</p>
-	<?php do_action('lostpassword_form'); ?>
+		<?php do_action('lostpassword_form'); ?>
+		<div class="clear"></div>
+		
 		<input type="hidden" name="redirect_to" value="<?php echo esc_attr( $bum_redirect_to ); ?>" />
-		<p class="submit"><input type="submit" name="wp-submit" id="wp-submit" class="button-primary" value="<?php esc_attr_e('Get New Password'); ?>" tabindex="100" /></p>
+		<p class="submit"><input type="submit" name="wp-submit" id="wp-submit" class="registration-submit" value="<?php esc_attr_e('Get New Password'); ?>" tabindex="100" /></p>
 	</form>
 	
 	<p id="nav">
@@ -61,19 +67,19 @@ case 'rp' :
 		<input type="hidden" id="user_login" value="<?php echo esc_attr( $_GET['login'] ); ?>" autocomplete="off" />
 	
 		<p>
-			<label><?php _e('New password') ?><br />
-			<input type="password" name="pass1" id="pass1" class="input" size="20" value="" autocomplete="off" /></label>
+			<label class="login-label"><?php _e('New password') ?></label>
+			<input type="password" name="pass1" id="pass1" class="input" size="20" value="" autocomplete="off" />
 		</p>
 		<p>
-			<label><?php _e('Confirm new password') ?><br />
-			<input type="password" name="pass2" id="pass2" class="input" size="20" value="" autocomplete="off" /></label>
+			<label class="login-label"><?php _e('Confirm new password') ?></label>
+			<input type="password" name="pass2" id="pass2" class="input" size="20" value="" autocomplete="off" />
 		</p>
 	
 		<div id="pass-strength-result" class="hide-if-no-js"><?php _e('Strength indicator'); ?></div>
 		<p class="description indicator-hint"><?php _e('Hint: The password should be at least seven characters long. To make it stronger, use upper and lower case letters, numbers and symbols like ! " ? $ % ^ &amp; ).'); ?></p>
 	
-		<br class="clear" />
-		<p class="submit"><input type="submit" name="wp-submit" id="wp-submit" class="button-primary" value="<?php esc_attr_e('Reset Password'); ?>" tabindex="100" /></p>
+		<div class="clear"></div>
+		<p class="submit"><input type="submit" name="wp-submit" id="wp-submit" class="registration-submit" value="<?php esc_attr_e('Reset Password'); ?>" tabindex="100" /></p>
 	</form>
 	
 	<p id="nav">
@@ -94,19 +100,20 @@ default:
 	
 	<form name="loginform" id="loginform" action="<?php echo bum_get_permalink_login(); ?>" method="post">
 		<p>
-			<label><?php _e('Username') ?><br />
-			<input type="text" name="log" id="user_login" class="input" value="<?php echo esc_attr($bum_user_login); ?>" size="20" tabindex="10" /></label>
+			<label class="login-label"><?php _e('Username') ?></label>
+			<input type="text" name="log" id="user_login" class="input" value="<?php echo esc_attr($bum_user_login); ?>" size="20" tabindex="10" />
 		</p>
 		<p>
-			<label><?php _e('Password') ?><br />
-			<input type="password" name="pwd" id="user_pass" class="input" value="" size="20" tabindex="20" /></label>
+			<label class="login-label"><?php _e('Password') ?></label>
+			<input type="password" name="pwd" id="user_pass" class="input" value="" size="20" tabindex="20" />
 		</p>
 		
 		<?php do_action('login_form'); ?>
+		<div class="clear"></div>
 		
 		<p class="forgetmenot"><label><input name="rememberme" type="checkbox" id="rememberme" value="forever" tabindex="90"<?php checked( $bum_rememberme ); ?> /> <?php esc_attr_e('Remember Me'); ?></label></p>
 		<p class="submit">
-			<input type="submit" name="wp-submit" id="wp-submit" class="button-primary" value="<?php esc_attr_e('Log In'); ?>" tabindex="100" />
+			<input type="submit" name="wp-submit" id="wp-submit" class="registration-submit" value="<?php esc_attr_e('Log In'); ?>" tabindex="100" />
 	<?php	if ( $bum_interim_login ) { ?>
 			<input type="hidden" name="interim-login" value="1" />
 	<?php	} else { ?>
@@ -160,3 +167,4 @@ default:
 break;
 } // end action switch
 
+?></div>

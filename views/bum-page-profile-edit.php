@@ -202,6 +202,8 @@ defined('ABSPATH') or die("Cannot access pages directly.");
 	?>
 	</table>
 	
+	<?php //do_action('edit_user_profile'); ?>
+	
 	<h3><?php IS_PROFILE_PAGE ? _e('About Yourself') : _e('About the user'); ?></h3>
 	
 	<table class="form-table">
