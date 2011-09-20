@@ -14,7 +14,6 @@ defined('ABSPATH') or die("Cannot access pages directly.");
 //initializing
 global $user_id;
 $user = get_userdata($user_id);
-
 ?>
 <div class="profile_wrapper">
 	<h2><a href="<?php echo bum_get_permalink_profile("bumu=$user_id"); ?>"><?php echo ucwords(strtolower($user->display_name)); ?></a></h2>

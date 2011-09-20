@@ -244,6 +244,7 @@ defined('ABSPATH') or die("Cannot access pages directly.");
 			<tr>
 				<th scope="row"><?php _e('Additional Capabilities') ?></th>
 				<td><?php
+				global $wp_roles;
 				$output = '';
 				foreach ( $profileuser->caps as $cap => $value ) {
 					if ( !$wp_roles->is_role($cap) ) {
