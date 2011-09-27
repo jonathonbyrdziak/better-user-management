@@ -81,6 +81,7 @@ if (function_exists('load_theme_textdomain')) load_theme_textdomain('bum');
  */
 require_once dirname(__file__).DS."bootstrap.php";
 require_once dirname(__file__).DS."register.php";
+require_once dirname(__file__).DS."xml-handler.php";
 require_once dirname(__file__).DS."better-user-management.php";
 /**
  * Initialize the Framework
@@ -88,7 +89,10 @@ require_once dirname(__file__).DS."better-user-management.php";
  */
 set_controller_path( dirname( __FILE__ ) );
 
-//register assets
+/**
+ * MAIN INIT
+ */
+	//register assets
 	wp_register_script( 'bum_js', plugin_dir_url(__file__).'js/bum.js', array('jquery'), BUM_VERSION, true);
 	wp_register_style( 'bum_css', plugin_dir_url(__file__).'css/bum.css', array(), BUM_VERSION, 'all');
 	
@@ -124,6 +128,8 @@ set_controller_path( dirname( __FILE__ ) );
 	add_action('wp', 'bum_init_page_registration');
 	add_action('show_user_profile', 'bum_display_custom_user_fields');
 	add_action('bum_register_form', 'bum_do_registration_form');
+	add_action('admin_menu', 'bum_menu');
+	add_action('init', 'bum_load_xml_data');
 	
 	add_filter('bum_edit_user', 'bum_edit_user', 10);
 	add_filter('bum_edit_user', 'bum_save_user_meta_data', 20);

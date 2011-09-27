@@ -10,7 +10,204 @@
  */
 
 defined('ABSPATH') or die("Cannot access pages directly.");
+
+/**
+ * Create the menu
+ */
+function bum_menu()
+{
+	add_users_page( 'Manage Roles', 'Manage Roles', 'read', 'manage-roles', 'bum_manage_roles' );
+	add_users_page( 'Manage Capabilities', 'Manage Capabilities', 'read', 'manage-capabilities', 'bum_manage_caps' );
+	add_users_page( 'Manage Fields', 'Manage Fields', 'read', 'manage-fields', 'bum_manage_fields' );
+}
+
+/**
+ * 
+ */
+function bum_load_xml_data()
+{
+	global $wp_roles, $wp_user_fields;
+	$xml_fields = new xmlDataManagement( 'fields' );
+	$data_fields = $xml_fields->load_file();
 	
+	$xml_roles = new xmlDataManagement( 'roles' );
+	$data_roles = $xml_roles->load_file();
+	
+	if( isset( $wp_roles->roles ) )
+	{
+		foreach( $wp_roles->roles as $key => $role )
+		{
+			//loading fields
+			if( isset( $data_fields->$key ) )
+			{
+				foreach( $data_fields->$key as $field => $options )
+				{
+					$tmp_key = key( $options );
+					$wp_user_fields->$field->$tmp_key = $options->$tmp_key;
+				}
+			}
+			
+			//loading additional role info
+			if( isset( $data_roles->$key ) && $data_roles->$key == 'yes' )
+			{
+				$wp_roles->roles[$key]['register'] = 'yes';
+			}
+			else
+			{
+				$wp_roles->roles[$key]['register'] = 'no';
+			}
+		}
+	}
+}
+
+/**
+ * Handle field stuff
+ */
+function bum_manage_fields()
+{
+	bum_load_xml_data();
+	
+	$action = isset( $_POST['action'] ) ? $_POST['action'] : $_GET['action'];
+	switch( $action )
+	{
+		case 'delete-user-field':
+			global $wp_roles;
+			$cap = $_GET['delete-id'];
+			
+			foreach( $wp_roles->roles as $key => $role )
+				$wp_roles->remove_cap( $key, $cap );
+			break;
+		case 'edit-user-field':
+		case 'add-user-field':
+			global $wp_roles, $wp_user_fields;
+			$name = $_POST['field-name'];
+			$type = $_POST['field-type'];
+			$roles = (array)$_POST['field-roles'];
+			$id   = sanitize_title( $name );
+
+			//load xml class and file
+			$xml = new xmlDataManagement( 'fields' );
+			$data = $xml->load_file();
+			
+			if( count( $roles ) > 0 )
+			{
+				foreach( $wp_roles->roles as $key => $role )
+				{
+					if( in_array( $key, $roles ) )
+					{
+						$data->$key->$id->name = $name;
+						$data->$key->$id->type = $type;
+					}
+					else
+					{
+						unset( $data->$id );
+					}
+				}
+			}
+			
+			$xml->array_to_xml( $data );
+			break;
+	}
+	
+	echo bum_get_show_view( 'bum-manage-fields' );
+}
+
+/**
+ * Handle capability stuff
+ */
+function bum_manage_caps()
+{
+	$action = isset( $_POST['action'] ) ? $_POST['action'] : $_GET['action'];
+	switch( $action )
+	{
+		case 'delete-user-cap':
+			global $wp_roles;
+			$cap = $_GET['delete-id'];
+			
+			foreach( $wp_roles->roles as $key => $role )
+				$wp_roles->remove_cap( $key, $cap );
+			break;
+		case 'edit-user-cap':
+		case 'add-user-cap':
+			global $wp_roles;
+			$cap = $_POST['cap-name'];
+			$roles = (array)$_POST['cap-roles'];
+
+			foreach( $wp_roles->roles as $key => $role )
+			{
+				if( in_array( $key, $roles ) )
+					$wp_roles->add_cap( $key, $cap );
+				else
+					$wp_roles->remove_cap( $key, $cap );
+			}
+			break;
+	}
+	
+	echo bum_get_show_view( 'bum-manage-capabilities' );
+}
+
+/**
+ * Handle role stuff
+ */
+function bum_manage_roles()
+{
+	bum_load_xml_data();
+	
+	$action = isset( $_POST['action'] ) ? $_POST['action'] : $_GET['action'];
+	switch( $action )
+	{
+		case 'delete-user-role':
+			//get vars
+			$name = $_GET['delete-id'];
+			
+			$roles = new WP_Roles();
+			$roles->remove_role( $name );
+			break;
+		case 'edit-user-role':
+			//get vars
+			$edit_id = $_POST['edit-id'];
+		case 'add-user-role':
+			//get vars
+			$allow = $_POST['role-allow'] == 'yes' ? 'yes' : 'no';
+			$name = $_POST['role-name'];
+			$id = $_POST['role-slug'] == '' ? sanitize_title( $name ) : $_POST['role-slug'];
+			
+			//add role
+			$roles = new WP_Roles();
+			if( isset( $edit_id ) )
+				$roles->remove_role( $edit_id );
+			$roles->add_role( $id, $name, array() );
+			
+			//load xml class and file
+			$xml = new xmlDataManagement( 'roles' );
+			$data = $xml->load_file();
+			$data->$id = $allow;
+			$xml->array_to_xml( $data );
+			break;
+	}
+	
+	echo bum_get_show_view( 'bum-manage-roles' );
+}
+
+function bum_get_user_by_role( $role )
+{
+    if( class_exists( 'WP_User_Search' ) )
+    {
+        $wp_user_search = new WP_User_Search( '', '', $role );
+        $ids = $wp_user_search->get_results();
+    }
+    else
+    {
+        global $wpdb;
+        $ids = $wpdb->get_col('SELECT ID 
+            FROM '.$wpdb->users.' INNER JOIN '.$wpdb->usermeta.' 
+            ON '.$wpdb->users.'.ID = '.$wpdb->usermeta.'.user_id 
+            WHERE '.$wpdb->usermeta.'.meta_key = \''.$wpdb->prefix.'capabilities\' 
+            AND '.$wpdb->usermeta.'.meta_value LIKE \'%"'.$role.'"%\'');  
+    }  
+    return $ids;
+}
+
 /**
  * Contains all of the default user fields
  * 
