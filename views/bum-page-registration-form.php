@@ -1,15 +1,85 @@
 <H2 class="registration-title"><?php echo ucwords($type); ?></H2>
-<form class="registration-form" name="registerform" id="registerform" action="<?php echo bum_get_permalink_registration(); ?>" method="post">
-	
-	<?php do_action('bum_register_form'); ?>
-	
-	<p class="registration-p"><?php _e('A password will be e-mailed to you.', 'bum'); ?></p>
-	<br class="clear" />
-	
-	<p class="submit"><input class="registration-submit" type="submit" name="wp-submit" value="<?php esc_attr_e('Register'); ?>" /></p>
-</form>
+<?php
+$form = new ValidForm( 'registerform', '', bum_get_permalink_registration() );
 
-<p class="registration-subnav">
-	<a href="<?php echo bum_get_permalink_login(); ?>"><?php _e('Log in') ?></a> |
-	<a href="<?php echo bum_get_permalink_registration(); ?>"><?php _e('Go back') ?></a>
-</p>
+$form->addField( 'user_login', 'Username', VFORM_STRING,
+	array( 'required' => true ),
+	array( 'required' => 'You need a username.' ),
+	array( 'tip' => 'Usernames cannot be changed.' )
+);
+	
+$form->addField( 'user_email', 'Email', VFORM_EMAIL,
+	array( 'required' => true ),
+	array( 'required' => 'You need an email.', 'type' => 'Email not valid.' )
+);
+	
+$form->addField( 'user_email1', 'Confirm Email', VFORM_EMAIL,
+	array( 'required' => true ),
+	array( 'required' => 'You need an email.', 'type' => 'Email not valid.' )
+);
+
+$form->addField( 'user_type', '', VFORM_HIDDEN,
+	array(),
+	array(),
+	array( 'default' => $type )
+);
+
+/*
+ * This handles extra fields ( basically reading the field info and putting it into ValidForm )
+ * Currently handles `radio`, `checkbox`, `select`, `input_text` ( text field ), and `textarea`
+ */
+if( $fields->description )
+{
+	$fields = json_decode( $fields->description );
+	foreach( $fields as $field )
+	{
+		//get info
+		$info = bum_get_field_info( $field );
+		$fid = 'bum_'.sanitize_title( $info['title'] );
+		
+		//this is handling `radio`, `checkbox`, `select`
+		if( in_array( $info['cssClass'], array( 'radio', 'checkbox', 'select' ) ) )
+		{
+			if( $info['cssClass'] == 'radio' )
+				$type = VFORM_RADIO_LIST;
+			elseif( $info['cssClass'] == 'checkbox' )
+				$type = VFORM_CHECK_LIST;
+			else
+				$type = VFORM_SELECT_LIST;
+			
+			//Multiple values are seperated by | ( pipe )
+			if( strpos( $info['meta_value'], '|' ) !== false )
+				$info['meta_value'] = explode( '|', $info['meta_value'] );
+				
+			$box = $form->addField( 'bum_'.$info['id'], $info['title'], $type,
+				array( 'required' => ($info['required']=='false'?false:true) ),
+				array( 'required' => 'The following field is required: '.$info['title'] ),
+				( $info['tip'] ? array( 'tip' => $info['tip'], 'default' => $info['meta_value'] ) : array('default' => $info['meta_value']) )
+			);
+			
+			foreach( $info['values'] as $checkbox )
+				$box->addField( $checkbox->value, htmlentities( $checkbox->value ) );
+		}
+		
+		//this is handling `input_text`, `textarea`
+		if( in_array( $info['cssClass'], array( 'input_text', 'textarea' ) ) )
+		{
+			if( $info['cssClass'] == 'input_text' )
+				$type = VFORM_STRING;
+			else
+				$type = VFORM_TEXT;
+				
+			$form->addField( 'bum_'.$info['id'], $info['values'], $type,
+				array( 'required' => ($info['required']=='false'?false:true) ),
+				array( 'required' => 'The following field is required: '.$info['values'] ),
+				( $info['tip'] ? array( 'tip' => $info['tip'], 'default' => $info['meta_value'] ) : array('default' => $info['meta_value']) )
+			);
+		}
+	}
+}
+
+$form->addParagraph("A password will be e-mailed to you", "");
+$form->setSubmitLabel("Register");
+
+echo $form->toHtml();
+?>

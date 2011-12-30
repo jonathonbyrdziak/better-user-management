@@ -19,4 +19,12 @@ if ( !get_option('users_can_register') ) {
 //initializing
 $type = bum_get_registration_type();
 
-require $view;
+if( $type )
+{
+	//get extra fields
+	$fields = get_term_by( 'slug', $type, BUM_HIDDEN_FIELDS );
+	
+	require $view;
+}
+else
+	echo '<h2>Registration of this user role is not allowed.</h2>';

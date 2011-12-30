@@ -29,39 +29,38 @@ switch ($bum_action) {
 
 case 'lostpassword' :
 case 'retrievepassword' :
-
 	echo apply_filters('login_message', '<p class="message">' . __('Please enter your username or email address. You will receive a link to create a new password via email.') . '</p>');
 
-	?>
-	
-	<form name="lostpasswordform" id="lostpasswordform" action="<?php echo bum_get_permalink_login('action=lostpassword'); ?>" method="post">
-		<p>
-			<label class="login-label"><?php _e('Username or E-mail:') ?></label>
-			<input type="text" name="user_login" id="user_login" class="input" value="<?php echo esc_attr($bum_user_login); ?>" size="20" tabindex="10" />
-		</p>
-		<?php do_action('lostpassword_form'); ?>
-		<div class="clear"></div>
+	$form = new ValidForm( 'lostpasswordform', '', bum_get_permalink_login('action=lostpassword') );
+
+	$form->addField( 'user_login', 'Username or E-mail', VFORM_STRING,
+		array( 'required' => true ),
+		array( 'required' => 'You need a username or e-mail.' ) );
 		
-		<input type="hidden" name="redirect_to" value="<?php echo esc_attr( $bum_redirect_to ); ?>" />
-		<p class="submit"><input type="submit" name="wp-submit" id="wp-submit" class="registration-submit" value="<?php esc_attr_e('Get New Password'); ?>" tabindex="100" /></p>
-	</form>
+	$form->setSubmitLabel("Get New Password");
+		
+	do_action('lostpassword_form');
 	
+	$form->addField( 'redirect_to', '', VFORM_HIDDEN,
+		array(),
+		array(),
+		array( 'default' => esc_attr( $bum_redirect_to ) ) );
+	
+	echo $form->toHtml();
+	?>
 	<p id="nav">
 	<a href="<?php echo bum_get_permalink_login() ?>"><?php _e('Log in') ?></a>
 	<?php if (get_option('users_can_register')) : ?>
 	 | <a href="<?php echo bum_get_permalink_login('action=register'); ?>"><?php _e('Register') ?></a>
 	<?php endif; ?>
 	</p>
-	
 	<?php
-
 break;
 
 case 'resetpass' :
 case 'rp' :
 	
 	echo apply_filters('login_message', '<p class="message reset-pass">' . __('Enter your new password below.') . '</p>');
-	
 	?>
 	<form name="resetpassform" id="resetpassform" action="<?php echo bum_get_permalink_login('action=resetpass&key=' . urlencode($_GET['key']) . '&login=' . urlencode($_GET['login']).'login_post'); ?>" method="post">
 		<input type="hidden" id="user_login" value="<?php echo esc_attr( $_GET['login'] ); ?>" autocomplete="off" />
@@ -95,35 +94,43 @@ break;
 
 case 'login' :
 default:
+	$form = new ValidForm( 'loginform', '', bum_get_permalink_login() );
+
+	$form->addField( 'log', 'Username', VFORM_STRING,
+		array( 'required' => true ),
+		array( 'required' => 'You need a username.' ),
+		array( 'tip' => 'Usernames cannot be changed.' ) );
 		
-	?>
+	$form->addField( 'pwd', 'Password', VFORM_PASSWORD,
+		array( 'required' => true ),
+		array( 'required' => 'Enter your password.' ) );
+		
+	$remember = $form->addField( 'rememberme', '', VFORM_CHECK_LIST );
+	$remember->addField( 'Remember Me', 'forever' );
+		
+	$form->setSubmitLabel("Login");
 	
-	<form name="loginform" id="loginform" action="<?php echo bum_get_permalink_login(); ?>" method="post">
-		<p>
-			<label class="login-label"><?php _e('Username') ?></label>
-			<input type="text" name="log" id="user_login" class="input" value="<?php echo esc_attr($bum_user_login); ?>" size="20" tabindex="10" />
-		</p>
-		<p>
-			<label class="login-label"><?php _e('Password') ?></label>
-			<input type="password" name="pwd" id="user_pass" class="input" value="" size="20" tabindex="20" />
-		</p>
-		
-		<?php do_action('login_form'); ?>
-		<div class="clear"></div>
-		
-		<p class="forgetmenot"><label><input name="rememberme" type="checkbox" id="rememberme" value="forever" tabindex="90"<?php checked( $bum_rememberme ); ?> /> <?php esc_attr_e('Remember Me'); ?></label></p>
-		<p class="submit">
-			<input type="submit" name="wp-submit" id="wp-submit" class="registration-submit" value="<?php esc_attr_e('Log In'); ?>" tabindex="100" />
-	<?php	if ( $bum_interim_login ) { ?>
-			<input type="hidden" name="interim-login" value="1" />
-	<?php	} else { ?>
-			<input type="hidden" name="redirect_to" value="<?php echo esc_attr($bum_redirect_to); ?>" />
-	<?php 	} ?>
-			<input type="hidden" name="testcookie" value="1" />
-		</p>
-	</form>
+	do_action('login_form');
 	
-	<?php if ( !$bum_interim_login ) { ?>
+	if( $bum_interim_login ) {
+		$form->addField( 'interim-login', '', VFORM_HIDDEN,
+			array(),
+			array(),
+			array( 'default' => '1' ) );
+	} else {
+		$form->addField( 'redirect_to', '', VFORM_HIDDEN,
+			array(),
+			array(),
+			array( 'default' => esc_attr($bum_redirect_to) ) );
+	}
+	$form->addField( 'testcookie', '', VFORM_HIDDEN,
+		array(),
+		array(),
+		array( 'default' => '1' ) );
+	
+	echo $form->toHtml();
+	
+	if ( !$bum_interim_login ) { ?>
 	<p id="nav">
 		<?php if ( isset($_GET['checkemail']) && in_array( $_GET['checkemail'], array('confirm', 'newpass') ) ) : ?>
 		<?php elseif ( get_option('users_can_register') ) : ?>

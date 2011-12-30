@@ -18,37 +18,133 @@ function bum_menu()
 {
 	add_users_page( 'Manage Roles', 'Manage Roles', 'read', 'manage-roles', 'bum_manage_roles' );
 	add_users_page( 'Manage Capabilities', 'Manage Capabilities', 'read', 'manage-capabilities', 'bum_manage_caps' );
-	add_users_page( 'Manage Fields', 'Manage Fields', 'read', 'manage-fields', 'bum_manage_fields' );
+	add_users_page( 'Manage Profiles', 'Manage Profiles', 'read', 'manage-profile', 'bum_manage_fields' );
+}
+
+function bum_show_custom_fields_admin()
+{
+	//get extra fields
+	$profileuser = bum_get_user_to_edit( $_GET['user_id'] );
+	if(!$profileuser->data->ID) exit;
+	
+	$fields = get_term_by( 'slug', $profileuser->roles[0], BUM_HIDDEN_FIELDS );
+	
+	$form = new ValidForm( 'your-profile', '', get_permalink().'?user_id='.$_GET['user_id'] );
+	
+	/*
+	 * This handles extra fields ( basically reading the field info and putting it into ValidForm )
+	 * Currently handles `radio`, `checkbox`, `select`, `input_text` ( text field ), and `textarea`
+	 */
+	if( $fields->description )
+	{
+		echo '<h3>Custom fields</h3>';
+		$fields = json_decode( $fields->description );
+		foreach( $fields as $field )
+		{
+			//get info
+			$info = bum_get_field_info( $field );
+			$fid = 'bum_'.sanitize_title( $info['title'] );
+			
+			//this is handling `radio`, `checkbox`, `select`
+			if( in_array( $info['cssClass'], array( 'radio', 'checkbox', 'select' ) ) )
+			{
+				if( $info['cssClass'] == 'radio' )
+					$type = VFORM_RADIO_LIST;
+				elseif( $info['cssClass'] == 'checkbox' )
+					$type = VFORM_CHECK_LIST;
+				else
+					$type = VFORM_SELECT_LIST;
+				
+				//Multiple values are seperated by | ( pipe )
+				if( strpos( $info['meta_value'], '|' ) !== false )
+					$info['meta_value'] = explode( '|', $info['meta_value'] );
+					
+				$box = $form->addField( 'bum_'.$info['id'], $info['title'], $type,
+					array( 'required' => ($info['required']=='false'?false:true) ),
+					array( 'required' => 'The following field is required: '.$info['title'] ),
+					( $info['tip'] ? array( 'tip' => $info['tip'], 'default' => $info['meta_value'] ) : array('default' => $info['meta_value']) )
+				);
+				
+				foreach( $info['values'] as $checkbox )
+					$box->addField( $checkbox->value, htmlentities( $checkbox->value ) );
+			}
+			
+			//this is handling `input_text`, `textarea`
+			if( in_array( $info['cssClass'], array( 'input_text', 'textarea' ) ) )
+			{
+				if( $info['cssClass'] == 'input_text' )
+					$type = VFORM_STRING;
+				else
+					$type = VFORM_TEXT;
+					
+				$form->addField( 'bum_'.$info['id'], $info['values'], $type,
+					array( 'required' => ($info['required']=='false'?false:true) ),
+					array( 'required' => 'The following field is required: '.$info['values'] ),
+					( $info['tip'] ? array( 'tip' => $info['tip'], 'default' => $info['meta_value'] ) : array('default' => $info['meta_value']) )
+				);
+			}
+		}
+	}
+
+	echo $form->toWpHtml();
+}
+
+/**
+ * Returns a Title, ID and Value
+ */
+function bum_get_field_info( $field )
+{
+	//init
+	global $user_id;
+	$user = get_userdata($user_id);
+	$return = array();
+	
+	//get title
+	if( $field->cssClass == 'radio' || $field->cssClass == 'checkbox' || $field->cssClass == 'select' )
+		$return['title'] = $field->title;
+	else
+		$return['title'] = $field->values;
+	
+	//create ID
+	$return['id'] = $field->id == '' ? sanitize_title( $return['title'] ) : $field->id;
+	
+	//get current value ( if set )
+	if( $user )
+	{
+		$meta = get_user_meta($user->ID, 'bum_'.$return['id'], true);
+		$return['meta_value'] = $meta ? $meta : 'Not set.';
+	}
+	else
+	{
+		$return['meta_value'] = false;
+	}
+	
+	foreach( $field as $key => $value )
+	{
+		if( !isset( $return[$key] ) )
+			$return[$key] = $value;
+	}
+	
+	return $return;
 }
 
 /**
  * 
  */
-function bum_load_xml_data()
+function bum_preload_data()
 {
-	global $wp_roles, $wp_user_fields;
-	$xml_fields = new xmlDataManagement( 'fields' );
-	$data_fields = $xml_fields->load_file();
+	global $wp_roles;
 	
-	$xml_roles = new xmlDataManagement( 'roles' );
-	$data_roles = $xml_roles->load_file();
+	//$wp_roles isn't set if visitor isn't logged in
+	$wp_roles = new WP_Roles();
 	
 	if( isset( $wp_roles->roles ) )
 	{
 		foreach( $wp_roles->roles as $key => $role )
 		{
-			//loading fields
-			if( isset( $data_fields->$key ) )
-			{
-				foreach( $data_fields->$key as $field => $options )
-				{
-					$tmp_key = key( $options );
-					$wp_user_fields->$field->$tmp_key = $options->$tmp_key;
-				}
-			}
-			
 			//loading additional role info
-			if( isset( $data_roles->$key ) && $data_roles->$key == 'yes' )
+			$term = get_term_by( 'slug', $key, BUM_HIDDEN_ROLES );
+			if( isset( $term ) && $term->description == 'yes' )
 			{
 				$wp_roles->roles[$key]['register'] = 'yes';
 			}
@@ -65,47 +161,65 @@ function bum_load_xml_data()
  */
 function bum_manage_fields()
 {
-	bum_load_xml_data();
-	
 	$action = isset( $_POST['action'] ) ? $_POST['action'] : $_GET['action'];
 	switch( $action )
 	{
-		case 'delete-user-field':
-			global $wp_roles;
-			$cap = $_GET['delete-id'];
-			
-			foreach( $wp_roles->roles as $key => $role )
-				$wp_roles->remove_cap( $key, $cap );
-			break;
-		case 'edit-user-field':
-		case 'add-user-field':
+		case 'add_edit':
 			global $wp_roles, $wp_user_fields;
-			$name = $_POST['field-name'];
-			$type = $_POST['field-type'];
-			$roles = (array)$_POST['field-roles'];
-			$id   = sanitize_title( $name );
-
-			//load xml class and file
-			$xml = new xmlDataManagement( 'fields' );
-			$data = $xml->load_file();
 			
-			if( count( $roles ) > 0 )
+			if( isset( $_POST['fbJson'] ) )
 			{
-				foreach( $wp_roles->roles as $key => $role )
+				//the fields are seperated by '&frmb'
+				$form_fields = array();
+				$fields = explode( '&frmb', $_POST['fbJson'] );
+				foreach( $fields as $field )
 				{
-					if( in_array( $key, $roles ) )
+					if( $field != '' )
 					{
-						$data->$key->$id->name = $name;
-						$data->$key->$id->type = $type;
-					}
-					else
-					{
-						unset( $data->$id );
+						//get info
+						list( $the_key, $the_value ) = explode( '=', $field );
+						preg_match_all( '/\[(.+?)]/', $the_key, $keys );
+						$keys = $keys[1];
+						
+						//checkboxes show up as 'undefined' if unchecked or 'checked', should be saved as bool
+						$the_value = $the_value == 'undefined' ? 'false' : urldecode( $the_value );
+						$the_value = $the_value == 'checked' ? 'true' : $the_value;
+						
+						//this is to deal with different depths of values
+						if( count( $keys ) == 2 )
+							$form_fields[$keys[0]][$keys[1]] = $the_value;
+						elseif( count( $keys ) == 3 )
+							$form_fields[$keys[0]][$keys[1]][$keys[2]] = $the_value;
+						elseif( count( $keys ) == 4 )
+							$form_fields[$keys[0]][$keys[1]][$keys[2]][$keys[3]] = $the_value;
 					}
 				}
+				
+				//generate the json for this form
+				$form = new Formbuilder( $form_fields );
+				$vals = $form->store();
+				$json = $form->generate_json();
+				$hash = $vals['form_hash'];
+				
+				//update or insert the json into hidden taxonomy
+				$term = get_term_by( 'slug', sanitize_title( $_GET['ptab'] ), BUM_HIDDEN_FIELDS );
+				if( $term )
+				{
+					wp_update_term( $term->term_id, BUM_HIDDEN_FIELDS,
+						array(
+							'description' => $json
+						)
+					);
+				}
+				else
+				{
+					wp_insert_term( $_GET['ptab'], BUM_HIDDEN_FIELDS,
+						array(
+							'description' => $json
+						)
+					);
+				}
 			}
-			
-			$xml->array_to_xml( $data );
 			break;
 	}
 	
@@ -151,8 +265,6 @@ function bum_manage_caps()
  */
 function bum_manage_roles()
 {
-	bum_load_xml_data();
-	
 	$action = isset( $_POST['action'] ) ? $_POST['action'] : $_GET['action'];
 	switch( $action )
 	{
@@ -178,11 +290,24 @@ function bum_manage_roles()
 				$roles->remove_role( $edit_id );
 			$roles->add_role( $id, $name, array() );
 			
-			//load xml class and file
-			$xml = new xmlDataManagement( 'roles' );
-			$data = $xml->load_file();
-			$data->$id = $allow;
-			$xml->array_to_xml( $data );
+			//save registration part in hidden taxonomy
+			$term = get_term_by( 'slug', sanitize_title( (isset($edit_id)?$edit_id:$id) ), BUM_HIDDEN_ROLES );
+			if( $term )
+			{
+				wp_update_term( $term->term_id, BUM_HIDDEN_ROLES,
+					array(
+						'description' => $allow
+					)
+				);
+			}
+			else
+			{
+				wp_insert_term( sanitize_title( (isset($edit_id)?$edit_id:$id) ), BUM_HIDDEN_ROLES,
+					array(
+						'description' => $allow
+					)
+				);
+			}
 			break;
 	}
 	
@@ -301,7 +426,7 @@ function bum_get_default_profile_fields()
 			'std' => ''
 		),
 		'jabber' => array(
-			'name' => 'Jabber / Google Talk',
+			'name' => 'Jabberz / Google Talk',
 			'desc' => '',
 			'id' => 'jabber',
 			'type' => 'text',
@@ -516,6 +641,17 @@ function bum_display_custom_user_fields($user = null, $fields = null)
 }
 
 /**
+ * 
+ * Enter description here ...
+ * @param int $user_id
+ * @param object $old_user
+ */
+function bum_save_user_profile( $user_id, $old_user )
+{
+	bum_save_user_meta_data( $user_id );
+}
+
+/**
  * Save user meta data
  * 
  * @param $user_id
@@ -527,15 +663,15 @@ function bum_save_user_meta_data( $user_id, $role = false )
 	$fields = array();
 	
 	$role = $role === false ? $user->roles[0] : $role;
-	$fields = wp_parse_args($fields, get_custom_user_fields( $role ));
+	$fields = get_custom_user_fields( $role );
 	
 	//reasons to fail
-	if (!isset($_REQUEST['user_meta_box_nonce']) || empty($fields)) return false;
+	/*if (!isset($_REQUEST['user_meta_box_nonce']) || empty($fields)) return false;
 	
 	// verify nonce
 	if (!wp_verify_nonce($_REQUEST['user_meta_box_nonce'], basename(__FILE__))) {
 		return $user_id;
-	}
+	}*/
 	
 	// check autosave
 	if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
@@ -547,18 +683,24 @@ function bum_save_user_meta_data( $user_id, $role = false )
 	{
 		foreach ($fields as $field)
 		{
-			if (!isset($_POST[$field['id']])) continue;
-										
-			$old = get_user_meta($user_id, $field['id'], true);
-    		$new = $_REQUEST[$field['id']];
+			$info = bum_get_field_info( $field );
+			$fid = 'bum_'.$info['id'];
+			
+			if (!isset($_POST[$fid]) && !isset($_POST[$fid.'[]'])) continue;
+			
+			$old = $info['meta_value'];
+    		$new = $_REQUEST[$fid];
 			
     		if ($new && $new != $old)
     		{
-    			update_user_meta($user_id, $field['id'], $new);
+    			if( is_array( $new ) )
+    				$new = implode( '|', $new );
+    			
+    			update_user_meta($user_id, $fid, $new);
     		}
     		elseif ('' == $new && $old)
     		{
-    			delete_user_meta($user_id, $field['id'], $old);
+    			delete_user_meta($user_id, $fid, $old);
     		}
     		
     	}
@@ -809,16 +951,20 @@ function bum_check_menu_text( $text, $href )
 function bum_get_registration_type()
 {
 	//initializing
+	global $wp_roles;
 	static $type;
-	$users = (array)bum_register_user();
-	$users = array_keys($users);
 	
 	//reasons to return
 	if (!isset($_REQUEST['user_type'])) return false;
 	
-	if (!isset($type) && in_array($_REQUEST['user_type'], $users))
+	if (!isset($type))
 	{
-		$type = $_REQUEST['user_type'];
+		foreach( $wp_roles->roles as $key => $role )
+		{
+			if( sanitize_title( $_REQUEST['user_type'] ) == $key && $role['register'] == 'yes' )
+				$type = sanitize_title( $_REQUEST['user_type'] );
+		}
+		
 	}
 	
 	return $type;
@@ -1111,7 +1257,7 @@ function bum_init_page_profile()
 	
 	$action = (isset($_REQUEST['action']))? $_REQUEST['action'] :'view';
 	$wp_http_referer = remove_query_arg(array('update', 'delete_count'), stripslashes($wp_http_referer));
-		
+	
 	$all_post_caps = array('posts', 'pages');
 	$user_can_edit = false;
 	foreach ( $all_post_caps as $post_cap )
@@ -1123,7 +1269,6 @@ function bum_init_page_profile()
 		$bum_public_user = get_userdata( $_REQUEST['bumu'] );
 		$user_id = $bum_public_user->ID;
 	}
-	
 	elseif ($action == 'view'){ }
 	elseif ($action == 'edit'){ }
 	
@@ -1475,8 +1620,24 @@ function bum_reset_vars( $vars ) {
  */
 function bum_init_page_registration()
 {
+	global $wp_roles;
+	
 	//reasons to return
 	if (!bum_is_page('Registration')) return false;
+	
+	foreach( $wp_roles->roles as $slug => $role )
+	{
+		if( $role['register'] == 'yes' )
+		{
+			registration_page( array(
+				'role' => $slug,
+				'name' => $role['name'],
+				'redirect_to' => get_bloginfo('url').'/profile/',
+				'fields' => array('user_login','user_email'),
+				'force_login' => false
+			) );
+		}
+	}
 	
 	if (is_user_logged_in())
 	{
@@ -1490,8 +1651,10 @@ function bum_init_page_registration()
 	if ( !empty($_POST) )
 	{
 		$role = bum_get_registration_type();
-		$bum_errors = bum_register_new_user($_POST['user_login'], $_POST['user_email'], $role);
+		$bum_errors = bum_register_new_user($_POST['user_login'], $_POST['user_email'], $_POST['user_type']);
 		
+		if( (string)((int)$bum_errors) == $bum_errors )
+			bum_save_user_meta_data( $bum_errors );
 	}
 	
 }
@@ -1578,7 +1741,7 @@ function bum_init_page_login()
 		if ( $bum_http_post ) {
 			$bum_errors = bum_retrieve_password();
 			if ( !is_wp_error($bum_errors) ) {
-				$bum_redirect_to = !empty( $_REQUEST['redirect_to'] ) ? $_REQUEST['redirect_to'] : bum_get_permalink_login().'?checkemail=confirm';
+				$bum_redirect_to = !empty( $_REQUEST['redirect_to'] ) ? $_REQUEST['redirect_to'] : bum_get_permalink_login().'&checkemail=confirm';
 				wp_safe_redirect( $bum_redirect_to );
 				exit();
 			}
@@ -1794,7 +1957,7 @@ function bum_retrieve_password() {
 	$message .= sprintf(__('Username: %s'), $user_login) . "\r\n\r\n";
 	$message .= __('If this was a mistake, just ignore this email and nothing will happen.') . "\r\n\r\n";
 	$message .= __('To reset your password, visit the following address:') . "\r\n\r\n";
-	$message .= '<' . network_site_url("wp-login.php?action=rp&key=$key&login=" . rawurlencode($user_login), 'login') . ">\r\n";
+	$message .= '<' . network_site_url("wp-login.php?action=rp&key={$key}&login=" . rawurlencode($user_login), 'login') . ">\r\n";
 
 	if ( is_multisite() )
 		$blogname = $GLOBALS['current_site']->site_name;

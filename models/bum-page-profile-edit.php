@@ -18,4 +18,7 @@ $_wp_admin_css_colors, $super_admins;
 $title = IS_PROFILE_PAGE ? __('Profile') : __('Edit User');
 $profileuser = bum_get_user_to_edit($user_id);
 
+//get extra fields
+$fields = get_term_by( 'slug', $profileuser->roles[0], BUM_HIDDEN_FIELDS );
+
 require_once $view;

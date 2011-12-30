@@ -63,6 +63,8 @@ defined("DS") or define("DS", DIRECTORY_SEPARATOR);
  * to use.
  */
 defined("BUM_VERSION") or define("BUM_VERSION", '1.0.0');
+defined("BUM_HIDDEN_FIELDS") or define("BUM_HIDDEN_FIELDS", 'bum_hidden_fields');
+defined("BUM_HIDDEN_ROLES") or define("BUM_HIDDEN_ROLES", 'bum_hidden_roles');
 
 /**
  * Initialize Localization
@@ -81,8 +83,10 @@ if (function_exists('load_theme_textdomain')) load_theme_textdomain('bum');
  */
 require_once dirname(__file__).DS."bootstrap.php";
 require_once dirname(__file__).DS."register.php";
-require_once dirname(__file__).DS."xml-handler.php";
+require_once dirname(__file__).DS."formbuilder.php";
+//require_once dirname(__file__).DS."xml-handler.php";
 require_once dirname(__file__).DS."better-user-management.php";
+require_once dirname(__file__).DS."ValidForm".DS."class.validform.php";
 /**
  * Initialize the Framework
  * 
@@ -94,10 +98,20 @@ set_controller_path( dirname( __FILE__ ) );
  */
 	//register assets
 	wp_register_script( 'bum_js', plugin_dir_url(__file__).'js/bum.js', array('jquery'), BUM_VERSION, true);
-	wp_register_style( 'bum_css', plugin_dir_url(__file__).'css/bum.css', array(), BUM_VERSION, 'all');
-	
+	wp_register_script( 'bum_validform_js', plugin_dir_url(__file__).'js/validform.js', array('jquery'), BUM_VERSION, true);
+	wp_register_script( 'bum_formbuilder', plugin_dir_url(__file__).'js/formbuilder.min.js', array('jquery'), BUM_VERSION, true);
+	wp_register_script( 'jquery_ui', 'https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.16/jquery-ui.min.js', array('jquery'), BUM_VERSION, true);
 	wp_enqueue_script('bum_js');
+	wp_enqueue_script('bum_formbuilder');
+	wp_enqueue_script('bum_validform_js');
+	wp_enqueue_script('jquery_ui');
+	
+	wp_register_style( 'bum_css', plugin_dir_url(__file__).'css/bum.css', array(), BUM_VERSION, 'all');
+	wp_register_style( 'bum_validform_css', plugin_dir_url(__file__).'css/validform.css', array(), BUM_VERSION, 'all');
+	wp_register_style( 'bum_formbuilder', plugin_dir_url(__file__).'css/formbuilder.min.css', array(), BUM_VERSION, 'all');
 	wp_enqueue_style('bum_css');
+	wp_enqueue_style('bum_formbuilder');
+	wp_enqueue_style('bum_validform_css');
 	
 	//shortcodes
 	add_shortcode('better_user_management', 'bum_pages_shortcode');
@@ -129,7 +143,12 @@ set_controller_path( dirname( __FILE__ ) );
 	add_action('show_user_profile', 'bum_display_custom_user_fields');
 	add_action('bum_register_form', 'bum_do_registration_form');
 	add_action('admin_menu', 'bum_menu');
-	add_action('init', 'bum_load_xml_data');
+	
+	add_action('init', 'bum_preload_data');
+	
+	add_action('user_register', 'bum_save_user_meta_data', 20, 1);
+	add_action('edit_user_profile', 'bum_show_custom_fields_admin');
+	add_action('edit_user_profile_update', 'bum_save_user_meta_data', 0, 2);
 	
 	add_filter('bum_edit_user', 'bum_edit_user', 10);
 	add_filter('bum_edit_user', 'bum_save_user_meta_data', 20);
@@ -148,6 +167,20 @@ set_controller_path( dirname( __FILE__ ) );
 	
 	//520 notifications
 	add_action('admin_notices', 'bum_read_520_rss', 1);
+	
+	//register hidden field taxonomy
+	register_taxonomy( BUM_HIDDEN_FIELDS, 'post', array(
+	    'hierarchical' => false,
+	    'show_ui' => false,
+	    'query_var' => false
+	));
+	
+	//register hidden role taxonomy
+	register_taxonomy( BUM_HIDDEN_ROLES, 'post', array(
+	    'hierarchical' => false,
+	    'show_ui' => false,
+	    'query_var' => false
+	));
 	
 	//////////////////////////////////////////////////
 	//   WIDGETS

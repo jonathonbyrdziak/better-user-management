@@ -153,7 +153,7 @@ defined('ABSPATH') or die("Cannot access pages directly.");
 			'force_login' => false
 		);
 		
-		if (!isset($pages))
+		if (empty($pages) && empty($page))
 		{
 			$pages = array();
 			$pages[$default['role']] = $default;
@@ -326,11 +326,16 @@ defined('ABSPATH') or die("Cannot access pages directly.");
 	 */
 	function get_custom_user_fields( $user_type = 'subscriber' )
 	{
+		$fields = get_term_by( 'slug', $user_type, BUM_HIDDEN_FIELDS );
+		$fields = $fields->description ? json_decode( $fields->description ) : array();
+		return $fields;
+		
 		//initializing variables
-		$fields = add_custom_user_field();
+		/* OLD CODE
+		 * $fields = add_custom_user_field();
 		
 		if (!isset($fields[$user_type])) return false;
-		return $fields[$user_type];
+		return $fields[$user_type];*/
 	}
 	
 	/**
